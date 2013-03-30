@@ -80,10 +80,13 @@ foreach($clean_files as $file) {
     $filename = $dir . DS . $file;
     $filetype = mime_content_type($filename);
     $object = $container->DataObject();
+    echo "Uploading file $file ";
     $object->Create(array('name' => $file),$filename);
+    echo "\n";
 }
+echo "All files uploaded!\n";
 
 // progress callback function
 function UploadProgress($len) {
-    printf("[uploading %d bytes]\n", $len);
+   echo ".";
 }
