@@ -9,66 +9,75 @@
  * IP and login credentials for each server. Use any image you want.
  * Worth 1 point
  */
+
+//Change the parameters below to indicate number of servers to create,
+//and what prefix their names will have.  Servers will be named
+//name_prefix1,name_prefix2, etc
+$name_prefix = 'web';
+$number_servers = '3';
+
 define('RAXSDK_COMPUTE_REGION', 'DFW');
-define('RAXSDK_OBJSTORE_REGION', 'DFW');
+define('RAXSDK_COMPUTE_NAME','cloudServersOpenStack');
+
 require('lib/rackspace.inc');
-//require('lib/compute.inc');
 
-//Authenticate
+//Authenticate and initialize
+//read in credentials ini file
+$credentials = parse_ini_file('.rackspace_cloud_credentials');
+
 $endpoint = 'https://identity.api.rackspacecloud.com/v2.0/';
-$credentials = array(
-    'username' => 'lnavarro',
-    'apiKey' => '4fd5ed0f68fc14f1f1ed5f46ef6218e6',
-    'tenantName' => '759583'
-);
 $cloud = new OpenCloud\Rackspace($endpoint, $credentials);
+$compute = $cloud->Compute();
 
-$compute = $cloud->Compute('cloudServersOpenStack', 'DFW');
-
-
-// first, find the image
+// first, find the image - hard coded to centos 6.3
 $ilist = $compute->ImageList();
 $found = FALSE;
 $distro = "org.openstack__1__os_distro";
 $version = "org.openstack__1__os_version";
 while (!$found && $image = $ilist->Next()) {
-    printf("Checking image %s...", $image->name);
-    if ($image->metadata->$distro == 'org.centos' &&
+   if ($image->metadata->$distro == 'org.centos' &&
         $image->metadata->$version >= 6.3) {
         $found = TRUE;
         $myimage = $image;
-        print("FOUND IT");
     }
-    print("\n");
 }
 
-// next, find the flavor
+// next, find the flavor - hard coded to 512M slice
 $flist = $compute->FlavorList();
 $found = FALSE;
 while (!$found && $flavor = $flist->Next()) {
-    printf("Checking flavor %s...", $flavor->name);
     if ($flavor->ram == 512) {
         $myflavor = $flavor;
         $found = TRUE;
-        print("FOUND IT");
     }
-    print("\n");
 }
 
+$i = 1;
 // let's create the server
-$server = $compute->Server();
-$server->name = 'test2';
-print("Creating server...");
-$server->Create(array(
-                     'image' => $myimage,
-                     'flavor' => $myflavor));
-print("requested, now waiting...\n");
-print("ID=".$server->id."...\n");
-$server->WaitFor("ACTIVE", 600, 'dot');
-print("done\n");
-exit(0);
+$creds = array();
+while ($i <= $number_servers) {
+    $server = $compute->Server();
+    $server->name = $name_prefix . $i;
+    print("Creating server...");
+    $server->Create(array(
+                         'image' => $myimage,
+                         'flavor' => $myflavor));
+    print("requested, now waiting...\n");
+    print("ID=".$server->id."...\n");
+// Uncomment the line below to have a display of server building 
+    $server->WaitFor("ACTIVE", 600, 'dot');
+    $creds[$i] = $server;
+    $i++;
+}
+
+//output the server name, ID, and root password
+$i = 1;
+while ($i <= $number_servers) {
+    $server = $creds[$i];
+    echo "\n\nID: {$server->id}\nName: {$server->name}\nPassword: {$server->adminPass}\n";
+    $i++;
+}
 
 function dot($server) {
     printf("%s %3d%%\n", $server->status, $server->progress);
 }
-
